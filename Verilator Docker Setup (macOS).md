@@ -101,6 +101,7 @@ In that case, reinstall Verilator and ensure that version v5.008 is checked out 
 cd /workspace
 git clone https://github.com/black-parrot/black-parrot.git
 cd black-parrot
+git submodule sync --recursive
 git submodule update --init --recursive
 ```
 Workspace layout should look like:

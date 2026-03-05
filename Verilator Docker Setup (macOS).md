@@ -2,7 +2,7 @@
 
 This document describes a reproducible Docker-based setup for building and running BlackParrot using Verilator on macOS.
 
-The flow locks Verilator to v5.008 to maintain compatibility with the current BlackParrot Makefiles.
+The flow pins Verilator to v5.008 to maintain compatibility with the current BlackParrot Makefiles.
 
 ---
 
@@ -32,6 +32,15 @@ docker run -it \
   ubuntu:22.04
 ```
 This launches an interactive Ubuntu 22.04 container.
+
+### Verify Volume Mapping (Important)
+Inside the container:
+```bash 
+ls /workspace
+touch /workspace/test.txt
+```
+Check ```~/bp-work``` on macOS.
+If ```test.txt```  exists, the volume mapping is correct.
 
 ---
 
@@ -64,6 +73,7 @@ autoconf
 make -j2
 make install
 ```
+```-j2``` is recommended for machines with 8GB RAM to avoid out-of-memory errors during compilation.
 
 Verify installation:
 ```bash
@@ -74,8 +84,14 @@ Expected:
 ```
 Verilator 5.008
 ```
+Newer Verilator releases remove the --binary option used by the current BlackParrot Verilator Makefiles. Verilator v5.008 is verified to be compatible with the current BlackParrot Verilator flow.
 
-Newer Verilator releases remove the ```--binary```  option used by the current BlackParrot Verilator Makefiles. ```Verilator 5.008``` is confirmed compatible.
+If a newer Verilator version is used, the build fails with:
+```
+%Error: Invalid option: --binary
+```
+
+In that case, reinstall Verilator and ensure that version v5.008 is checked out before building.
 
 ---
 
@@ -86,14 +102,20 @@ git clone https://github.com/black-parrot/black-parrot.git
 cd black-parrot
 git submodule update --init --recursive
 ```
-
+Workspace layout should look like:
+```
+bp-work/
+  verilator/
+  black-parrot/
+```
+  
 ---
 
 ## Running Verilator Simulation
 
 Navigate to the Verilator flow:
 ```bash
-cd bp_top/verilator
+cd /workspace/black-parrot/bp_top/verilator
 ```
 
 Available targets:
@@ -103,6 +125,7 @@ make help
 
 Common targets:
 ```
+- help 
 - lint.verilator
 - build.verilator
 - sim.verilator
@@ -124,7 +147,9 @@ Build with waveform support:
 ```bash
 make build.verilator TRACE=1 -j2
 ```
-```-j2``` is recommended for machines with 8GB RAM to avoid out-of-memory errors during compilation.
+
+- TRACE=1 enables --trace-fst in Verilator and generates waveform dump files.
+- Do not increase parallelism beyond available RAM (e.g., avoid -j8 on 8GB systems).
 
 Run simulation:
 ```bash
@@ -143,24 +168,36 @@ Hello World!
 Verilog $finish
 ```
 
+Presence of [BSG-PASS] indicates successful simulation.
+
+
 If ```TRACE=1``` is enabled, an FST waveform file is generated under:
 ```bash
 results/<test>/<config>/
 ```
-
+Inside the container:
+```bash
+find results -name "*.fst"
+```
+Example output:
+```
+results/bp_tethered.e_bp_default_cfg/demo/dump.fst
+```
 ---
 
 ## Viewing Waveforms (Host)
 
 Copy the FST file from the container:
 ```bash
-docker cp bp-verilator:<path_to_fst> ~/bp-work/
+docker cp \
+bp-verilator:/workspace/black-parrot/bp_top/verilator/results/bp_tethered.e_bp_default_cfg/demo/dump.fst \
+~/bp-work/
 ```
 
 Open with GTKWave:
 ```bash
-brew install gtkwave
-gtkwave dump.fst
+brew install gtkwave # If gtkwave is not installed
+gtkwave ~/bp-work/dump.fst
 ```
 ---
 
@@ -178,3 +215,8 @@ docker exec -it bp-verilator bash
 - Use make clean if CONFIG, FLAGS, or PARAMS are changed.
 - The mounted host directory preserves build artifacts across container restarts.
 - The flow has been validated with Verilator v5.008.
+
+
+---
+
+Validated against BlackParrot `master` as of March 2026.

@@ -196,8 +196,10 @@ BSG-INFO: TOP.testbench.tracer flushing trace: dump.fst
 ### For viewing the waveform 
 #### Find the path of the ```.fst``` file
 ```bash
+cd bp_top/verilator
 find results -name "*.fst"
 ```
+Copy the path and then exit
 #### Exit the container
 ```bash
 exit

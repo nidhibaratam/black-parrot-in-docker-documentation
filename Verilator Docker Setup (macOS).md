@@ -36,7 +36,7 @@ This launches an interactive Ubuntu 22.04 container.
 ### Verify Volume Mapping (Important)
 Inside the container:
 ```bash 
-ls /workspace
+cd workspace
 touch /workspace/test.txt
 ```
 Check ```~/bp-work``` on macOS.
@@ -58,7 +58,8 @@ apt install -y \
   libgmp-dev libmpc-dev libmpfr-dev \
   zlib1g-dev \
   device-tree-compiler \
-  curl
+  curl \
+  help2man
 ```
 
 
@@ -108,8 +109,39 @@ bp-work/
   verilator/
   black-parrot/
 ```
-  
 
+## Configuration 
+Check if all the submodules are in place
+
+```bash
+make checkout
+```
+Then build the libraries
+
+```bash
+make libs
+```
+Set the environment variables
+
+```bash
+echo 'export BP_DIR=/workspace/black-parrot' >> ~/.bashrc
+echo 'export BP_EXTERNAL_DIR=$BP_DIR/external' >> ~/.bashrc
+echo 'export BASEJUMP_STL_DIR=$BP_EXTERNAL_DIR/basejump_stl' >> ~/.bashrc
+echo 'export HARDFLOAT_DIR=$BP_EXTERNAL_DIR/HardFloat' >> ~/.bashrc
+source ~/.bashrc
+```
+
+Verify:
+```bash
+echo $HARDFLOAT_DIR
+ls $HARDFLOAT_DIR/source/RISCV
+```
+
+You should see:
+```
+HardFloat_consts.vi
+HardFloat_specialize.vi
+```
 
 ## Running Verilator Simulation
 
@@ -215,7 +247,73 @@ docker exec -it bp-verilator bash
 - The mounted host directory preserves build artifacts across container restarts.
 - The flow has been validated with Verilator v5.008.
 
+## Memory End Evaluation (bp_me) — With Waveform Support
+This evaluation flow validates the Memory End with full waveform generation enabled.
+Navigate
+```bash
+cd /workspace/black-parrot/bp_me/verilator
+```
+Clean Build with Waveform Support
+```bash
+make clean
+rm -rf obj_dir results
+make build.verilator TRACE=1 -j2
+```
+- TRACE=1 enables --trace-fst
+- Generates ```.fst``` waveform files
+- Required for debugging coherence transitions
+1. Random Coherence Stress
+```bash
+make sim.verilator TRACE=1 PROG=random_test NUM_INSTR_P=5000
+```
+Validates:
+- LCE/CCE protocol transitions
+- Coherence state correctness
+- Randomized memory access patterns
+Waveform Use:
+- Inspect LCE state machine transitions
+- Observe CCE directory updates
+- Check request/response timing
+2. Set Hammer Test
+```bash
+make sim.verilator TRACE=1 PROG=set_test ME_TEST_P=1
+```
+Validates:
+- Cache eviction behavior
+- Replacement logic
+- Single-set stress conditions
+Waveform Use:
+- Observe eviction decision logic
+- Track tag comparisons
+- Verify replacement policy behavior
+3. Load/Store Directed Test
+```bash
+make sim.verilator TRACE=1 PROG=ld_st
+```
+Validates:
+- Deterministic load/store ordering
+- Basic memory correctness
+Waveform Use:
+- Inspect memory request pipeline
+- Verify load-return timing
+- Confirm no dropped transactions
+4. Trace-Based Deterministic Test (Waveform Enabled)
+```bash
+make sim.verilator TRACE=1 PROG=mixed ME_TEST_P=2
+```
+Validates:
+- Trace replay correctness
+- Reproducibility of test scenarios
+Waveform Use:
+- Compare replay timing across runs
+- Debug deterministic failure cases
+- Locating Waveform Files
 
 
+---
 
-Validated against BlackParrot `master` as of March 2026.
+BlackParrot commit :
+<f6619cbc7a2f4533e06e0b3384e73ea07fee6846>
+
+Verilator version:
+5.008

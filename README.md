@@ -133,6 +133,7 @@ make help
 ```
 then you will see 
 ```
+help
 lint.verilator
 build.verilator
 sim.verilator
@@ -204,7 +205,7 @@ exit
 Now you are in the host terminal 
 ### Copying the the ```.fst ``` file into the host 
 ```bash
-docker cp bp-uvm:<Path of the ```.fst``` file found> ~/Desktop/
+docker cp bp-uvm:/workspace/black-parrot/bp_top/verilator/results/bp_tethered.e_bp_default_cfg/demo/dump.fst ~/Desktop/
 ```
 the ```.fst``` file  is stored in desktop 
 

@@ -1,48 +1,107 @@
 # BlackParrot Docker Setup (macOS)
-
-This document describes a reproducible Docker-based setup for building and running BlackParrot using Verilator on macOS.
+This guide targets Apple Silicon macOS systems where native
+BlackParrot builds can be difficult due to toolchain incompatibilities.
+Docker is used to provide a reproducible Linux environment.
 
 The flow pins Verilator to v5.008 to maintain compatibility with the current BlackParrot Makefiles.
-
-
 
 ## Tested Environment
 
 - Host: macOS (Apple Silicon M1)
 - Docker: Default architecture (linux/arm64)
-- Container: Ubuntu 22.04
+- Container: Ubuntu 24.04
 - Verilator: v5.008
 
+## Clone BlackParrot
 
+```bash
+cd ~/Desktop
+mkdir black-parrot
+cd black-parrot
+git clone https://github.com/black-parrot/black-parrot.git
+cd black-parrot
+git submodule sync --recursive
+git submodule update --init --recursive
+```
+Workspace layout should look like:
+```
+Desktop/
+ └── black-parrot/
+      └── black-parrot/
+```
 
-## Host Requirements
+## Host Workspace Setup
 
 A host directory is mounted into the container to persist build artifacts.
 
-```bash
-mkdir -p ~/bp-work
+Create a workspace on the Desktop:
 ```
+mkdir -p ~/Desktop/work
+```
+Waveforms and copied simulation artifacts are stored in this directory.
 
 
-## Create Docker Container
+## Build Docker Image
+Move to this folder in the repository:
+```bash
+cd ~/Desktop/black-parrot/black-parrot/docker
+```
+From the docker/ directory:
+
+```bash
+docker build \
+  -f Dockerfile.ubuntu24.04 \
+  --build-arg USER_NAME=$(whoami) \
+  --build-arg USER_ID=$(id -u) \
+  --build-arg GROUP_NAME=$(id -gn) \
+  --build-arg GROUP_ID=$(id -g) \
+  --build-arg OTHER_GROUPS="" \
+  -t blackparrot-ubuntu24 .
+```
+This creates the Docker image used for all subsequent steps.
+
+## Run the Docker Image 
+
+First verify if the image is built:
+```bash
+docker images
+```
+Run the container from any terminal:
 ```bash
 docker run -it \
-  --name bp-verilator \
-  -v ~/bp-work:/workspace \
-  ubuntu:22.04
+--name bp-verilator \
+-v ~/Desktop/work:/work \
+-v ~/Desktop/black-parrot/black-parrot:/workspace/black-parrot \
+--user root \
+blackparrot-ubuntu24
 ```
-This launches an interactive Ubuntu 22.04 container.
 
 ### Verify Volume Mapping (Important)
-Inside the container:
-```bash 
-cd workspace
-touch /workspace/test.txt
+Input:
+```bash
+ls /
 ```
-Check ```~/bp-work``` on macOS.
-If ```test.txt```  exists, the volume mapping is correct.
 
+Expected directories include:
+`bin  boot  dev  etc  home  lib  proc  root  usr  workspace  work`
 
+Input:
+```bash
+touch /work/test.txt
+ls /work
+```
+Expected output:
+
+`test.txt`
+
+Input:
+```bash
+ls /workspace/black-parrot
+```
+Output:
+`
+CONTRIBUTING.md  LICENSE  Makefile  Makefile.common  Makefile.env  README.md  bp_be  bp_common	bp_fe  bp_me  bp_top  ci  docker  docs	external  mk  tcl
+`
 
 ## Install Dependencies
 
@@ -79,13 +138,15 @@ make install
 Verify installation:
 ```bash
 verilator --version
+which verilator
 ```
 
 Expected:
 ```
 Verilator 5.008
+/usr/local/bin/verilator
 ```
-Newer Verilator releases remove the --binary option used by the current BlackParrot Verilator Makefiles. Verilator v5.008 is verified to be compatible with the current BlackParrot Verilator flow.
+Newer Verilator releases remove the `--binary` option used by the current BlackParrot Verilator Makefiles. Verilator v5.008 is verified to be compatible with the current BlackParrot Verilator flow.
 
 If a newer Verilator version is used, the build fails with:
 ```
@@ -96,25 +157,12 @@ In that case, reinstall Verilator and ensure that version v5.008 is checked out 
 
 
 
-## Clone BlackParrot
-```bash
-cd /workspace
-git clone https://github.com/black-parrot/black-parrot.git
-cd black-parrot
-git submodule sync --recursive
-git submodule update --init --recursive
-```
-Workspace layout should look like:
-```
-bp-work/
-  verilator/
-  black-parrot/
-```
-
 ## Configuration 
+
 Check if all the submodules are in place
 
 ```bash
+cd /workspace/black-parrot
 make checkout
 ```
 Then build the libraries
@@ -122,6 +170,8 @@ Then build the libraries
 ```bash
 make libs
 ```
+This builds external dependency libraries required by the BlackParrot toolchain.
+
 Set the environment variables
 
 ```bash
@@ -203,54 +253,37 @@ Verilog $finish
 Presence of [BSG-PASS] indicates successful simulation.
 
 
-If ```TRACE=1``` is enabled, an FST waveform file is generated under:
-```bash
-results/<test>/<config>/
-```
-Inside the container:
-```bash
-find results -name "*.fst"
-```
-Example output:
-```
-results/bp_tethered.e_bp_default_cfg/demo/dump.fst
-```
-
+If `TRACE=1` is enabled, an FST waveform file is generated in the results directory.
 
 ## Viewing Waveforms (Host)
 
 Copy the FST file from the container:
 ```bash
-docker cp \
-bp-verilator:/workspace/black-parrot/bp_top/verilator/results/bp_tethered.e_bp_default_cfg/demo/dump.fst \
-~/bp-work/
+find results -name "*.fst" -exec cp {} /work/ \;
 ```
+Reason: The search command ensures the waveform is copied even if the output directory changes between configurations.
 
+To view the waveform, either exit the container or open a new terminal on the host.
 Open with GTKWave:
 ```bash
 brew install gtkwave # If gtkwave is not installed
-gtkwave ~/bp-work/dump.fst
+gtkwave ~/Desktop/work/dump.fst
 ```
 
-
-## Re-entering the Container
+## Exiting the container
+```bash
+exit
+```
+## Re-entering the container 
 ```bash
 docker start bp-verilator
 docker exec -it bp-verilator bash
+cd /workspace/black-parrot
 ```
 
-
-
-## Notes
-
-- TRACE is disabled by default (TRACE ?= 0).
-- Use make clean if CONFIG, FLAGS, or PARAMS are changed.
-- The mounted host directory preserves build artifacts across container restarts.
-- The flow has been validated with Verilator v5.008.
-
-## Memory End Evaluation (bp_me) — With Waveform Support
+## Memory End Verification Flow (bp_me) — With Waveform Support
 This evaluation flow validates the Memory End with full waveform generation enabled.
-Navigate
+Navigate to the Memory End Verilator flow:
 ```bash
 cd /workspace/black-parrot/bp_me/verilator
 ```
@@ -306,15 +339,49 @@ Validates:
 - Trace replay correctness
 - Reproducibility of test scenarios
 Waveform Use:
-- Compare replay timing across runs
-- Debug deterministic failure cases
-- Locating Waveform Files
+Used to inspect coherence protocol behavior in waveforms.
 
 
----
+## Notes
 
-BlackParrot commit :
-<f6619cbc7a2f4533e06e0b3384e73ea07fee6846>
+- TRACE is disabled by default (TRACE ?= 0).
+- Use `make clean` if CONFIG, FLAGS, or PARAMS are changed.
+- The mounted host directory preserves build artifacts across container restarts.
+- The flow has been validated with Verilator v5.008.
 
-Verilator version:
-5.008
+### Troubleshooting
+
+Error:
+%Error: Invalid option: --binary
+
+Cause:
+A newer version of Verilator is installed. Newer releases removed the
+`--binary` option used by the current BlackParrot Verilator flow.
+
+Fix:
+Reinstall Verilator and ensure version **v5.008** is checked out before building.
+### Architecture
+
+```
+Host macOS
+   │
+   ├── Docker Container (Ubuntu)
+   │       │
+   │       ├── Verilator
+   │       └── BlackParrot
+   │
+   └── Mounted Volume
+        ~/Desktop/work  ← copied waveforms
+```
+
+### Cleanup
+
+To remove the container:
+```bash
+docker rm bp-verilator
+```
+
+To remove the image:
+```bash
+docker rmi blackparrot-ubuntu24
+```

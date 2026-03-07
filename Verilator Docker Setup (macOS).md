@@ -352,7 +352,9 @@ Used to inspect coherence protocol behavior in waveforms.
 ### Troubleshooting
 
 Error:
+```
 %Error: Invalid option: --binary
+```
 
 Cause:
 A newer version of Verilator is installed. Newer releases removed the

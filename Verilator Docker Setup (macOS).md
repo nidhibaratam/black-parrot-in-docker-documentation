@@ -5,6 +5,10 @@ Docker is used to provide a reproducible Linux environment.
 
 The flow pins Verilator to v5.008 to maintain compatibility with the current BlackParrot Makefiles.
 
+The commands in this guide assume the repository is cloned under
+`~/Desktop`. Any other directory can be used if the paths are adjusted
+accordingly.
+
 ## Tested Environment
 
 - Host: macOS (Apple Silicon M1)

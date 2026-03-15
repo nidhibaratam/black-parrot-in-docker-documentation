@@ -66,7 +66,7 @@ docker run -it \
 -v ~/Desktop/work:/work \
 -v ~/Desktop/black-parrot/black-parrot:/workspace/black-parrot \
 --user root \
-blackparrot-ubuntu24
+black-parrot
 ```
 
 ### Verify Volume Mapping (Important)

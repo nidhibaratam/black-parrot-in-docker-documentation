@@ -3,7 +3,8 @@ This guide targets Apple Silicon macOS systems where native
 BlackParrot builds can be difficult due to toolchain incompatibilities.
 Docker is used to provide a reproducible Linux environment.
 
-The flow pins Verilator to v5.008 to maintain compatibility with the current BlackParrot Makefiles.
+The flow pins Verilator to v5.008 because newer releases removed the
+`--binary` option required by the current BlackParrot Verilator flow.
 
 The commands in this guide assume the repository is cloned under
 `~/Desktop`. Any other directory can be used if the paths are adjusted
@@ -15,6 +16,13 @@ accordingly.
 - Docker: Default architecture (linux/arm64)
 - Container: Ubuntu 24.04
 - Verilator: v5.008
+
+## Prerequisites
+
+The following tools should be installed on the host system:
+
+- Docker
+- Git
 
 ## Clone BlackParrot
 
@@ -63,7 +71,7 @@ First verify if the image is built:
 ```bash
 docker images
 ```
-Run the container from any terminal:
+This command builds the `black-parrot` Docker image used in the next step.
 ```bash
 docker run -it \
 --name bp-verilator \
@@ -96,9 +104,10 @@ Input:
 ls /workspace/black-parrot
 ```
 Output:
-`
+
+```
 CONTRIBUTING.md  LICENSE  Makefile  Makefile.common  Makefile.env  README.md  bp_be  bp_common	bp_fe  bp_me  bp_top  ci  docker  docs	external  mk  tcl
-`
+```
 
 ## Install Dependencies
 
@@ -130,7 +139,7 @@ autoconf
 make -j2
 make install
 ```
-```-j2``` is recommended for machines with 8GB RAM to avoid out-of-memory errors during compilation.
+`-j2` is recommended for machines with 8GB RAM to avoid out-of-memory errors during compilation.
 
 Verify installation:
 ```bash
@@ -258,7 +267,7 @@ Copy the FST file from the container:
 ```bash
 find results -name "*.fst" -exec cp {} /work/ \;
 ```
-Reason: The search command ensures the waveform is copied even if the output directory changes between configurations.
+This ensures the waveform is copied even if the results directory changes.
 
 To view the waveform, either exit the container or open a new terminal on the host.
 Open with GTKWave:
@@ -336,8 +345,7 @@ Validates:
 - Trace replay correctness
 - Reproducibility of test scenarios
 Waveform Use:
-Used to inspect coherence protocol behavior in waveforms.
-
+- Inspect coherence protocol behavior in the waveform.
 
 ## Notes
 

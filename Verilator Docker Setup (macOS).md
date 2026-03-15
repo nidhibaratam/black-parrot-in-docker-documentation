@@ -49,14 +49,7 @@ cd ~/Desktop/black-parrot/black-parrot/docker
 From the docker/ directory:
 
 ```bash
-docker build \
-  -f Dockerfile.ubuntu24.04 \
-  --build-arg USER_NAME=$(whoami) \
-  --build-arg USER_ID=$(id -u) \
-  --build-arg GROUP_NAME=$(id -gn) \
-  --build-arg GROUP_ID=$(id -g) \
-  --build-arg OTHER_GROUPS="" \
-  -t blackparrot-ubuntu24 .
+make docker-build DOCKER_PLATFORM=ubuntu24.04
 ```
 This creates the Docker image used for all subsequent steps.
 
